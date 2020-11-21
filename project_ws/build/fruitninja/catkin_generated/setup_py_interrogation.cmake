@@ -1,0 +1,7 @@
+set(fruitninja_SETUP_PY_SETUP_MODULE "distutils.core")
+set(fruitninja_SETUP_PY_VERSION "0.0.0")
+set(fruitninja_SETUP_PY_SCRIPTS "")
+set(fruitninja_SETUP_PY_PACKAGES "fruitninja")
+set(fruitninja_SETUP_PY_PACKAGE_DIRS "lib/fruitninja")
+set(fruitninja_SETUP_PY_MODULES "")
+set(fruitninja_SETUP_PY_MODULE_DIRS "")

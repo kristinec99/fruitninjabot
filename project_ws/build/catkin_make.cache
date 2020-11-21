@@ -1,0 +1,2 @@
+fruitninja
+-DCATKIN_DEVEL_PREFIX=/home/user/project_ws/devel -DCMAKE_INSTALL_PREFIX=/home/user/project_ws/install -G Unix Makefiles

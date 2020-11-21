@@ -1,0 +1,8 @@
+prefix=/home/user/project_ws/devel
+
+Name: fruitninja
+Description: Description of fruitninja
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

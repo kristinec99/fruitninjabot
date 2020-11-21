@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>fruitninja</name>
+  <version>0.0.0</version>
+  <description>The fruitninja package</description>
+
+  <!-- A maintainer and license tag are required, but leave as todo -->
+  <maintainer email="robot@todo.todo">robot</maintainer>
+  <license>TODO</license>
+
+  <!-- Dependencies (can be catkin packages or system dependencies) -->
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>rospy</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>visualization_msgs</depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+  </export>
+</package>

@@ -1,0 +1,22 @@
+<launch>
+  <!-- You can overwrite these arguments from the commmand line. -->
+
+  <!-- Rviz configuration file parameter. -->
+  <arg name="cfg"   default="$(find fruitninja)/rviz/view133.rviz" />
+
+
+  <!-- Run the rviz visualization, with the specified config file -->
+  <node pkg="rviz"
+  	type="rviz"
+	name="rviz"
+	args="-d $(arg cfg)"
+	output="screen"/>
+
+  <!-- Start the point publisher -->
+  <node pkg="fruitninja"
+  	type="fruit_ninja_gui.py"
+	name="fruit_ninja_gui"
+	output="screen">
+  </node>
+
+</launch>
