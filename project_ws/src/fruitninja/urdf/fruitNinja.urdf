@@ -102,7 +102,7 @@
   <joint name="final" type="fixed">
     <parent link="link7"/>
     <child  link="tip"/>
-    <origin xyz="0 0.15 0" rpy="1.5708 0 3.1416"/>
+    <origin xyz="0 0.3 0" rpy="0 0 0"/>
   </joint>
 
   <link name="tip"/>

@@ -23,6 +23,7 @@ from geometry_msgs.msg import Point
 from geometry_msgs.msg import PointStamped
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
+from std_msgs.msg import Bool
 
 
 #
@@ -39,6 +40,8 @@ class PointPublisher:
         self.pub_point = rospy.Publisher("/point",
                                          PointStamped,
                                          queue_size=1, latch=True)
+        self.pub_start = rospy.Publisher("/start_check", Bool,
+                                         queue_size=1, latch=False)
 
         # Create the point.
         self.p = Point()
@@ -85,12 +88,13 @@ class PointPublisher:
         self.p.y = p[1]
         self.p.z = p[2]
         self.pressed = p[3]
+
         # if sim is running make sphere not transparent
         if not self.pressed:
             self.marker.color.r = 1.0
             self.marker.color.g = 1.0
             self.marker.color.b = 1.0
-            self.marker.color.a = 0.5 # make transparent
+            self.marker.color.a = 0.5 
         else:
             self.marker.color.r = 1.0
             self.marker.color.g = 0.0
@@ -104,6 +108,7 @@ class PointPublisher:
         self.point.header.stamp = now
         self.pub_mark.publish(self.mark)
         self.pub_point.publish(self.point)
+        self.pub_start.publish(self.pressed)
 
     def loop(self):
         # Prepare a servo loop at 10Hz.
@@ -195,7 +200,7 @@ class ConstructButton(QWidget):
 
         self.setLayout(vbox)
 
-    # check the place fruit button or reset button was pressed
+    # check if the place fruit button or reset button was pressed
     def startPressed(self):
         self.value = True
         self.callback(self.value)
