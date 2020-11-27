@@ -1,0 +1,37 @@
+<launch>
+  <!-- You can overwrite these arguments from the commmand line. -->
+
+  <!-- URDF parameter. -->
+  <arg name="urdf"  default="sevenR.urdf"/>
+  <arg name="model" default="$(find hw6code)/urdf/$(arg urdf)"/>
+
+  <!-- Rviz configuration file parameter. -->
+  <arg name="cfg"   default="$(find hw6code)/rviz/view133.rviz" />
+
+
+  <!-- Load the URDF file into the robot_description parameter. -->
+  <param name="robot_description" textfile="$(arg model)"/>
+
+  <!-- Start a GUI with sliders to command the joints.  -->
+  <node pkg="joint_state_publisher_gui"
+	type="joint_state_publisher_gui"
+	name="joint_state_publisher_gui"
+	output="screen">
+  </node>
+
+  <!-- Start the ROS kinematic chain processing. -->
+  <node pkg="robot_state_publisher"
+  	type="robot_state_publisher"
+	name="robot_state_publisher"
+	output="screen">
+    <param name="ignore_timestamp" value="true"/>
+  </node>
+
+  <!-- Run the rviz visualization, with the specified config file -->
+  <node pkg="rviz"
+  	type="rviz"
+	name="rviz"
+	args="-d $(arg cfg)"
+	output="screen"/>
+
+</launch>
