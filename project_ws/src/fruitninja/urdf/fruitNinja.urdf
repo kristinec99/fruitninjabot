@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="utf-8"?>
 
 <robot name="FruitNinja">
   
@@ -102,7 +102,7 @@
   <joint name="final" type="fixed">
     <parent link="link7"/>
     <child  link="tip"/>
-    <origin xyz="0 0.3 0" rpy="0 0 0"/>
+    <origin xyz="0 0.15 0" rpy="1.5708 0 3.1416"/>
   </joint>
 
   <link name="tip"/>
@@ -478,26 +478,51 @@
     </inertial>
   </link>
 
-  <joint name="attach-katana" type="fixed">
+  <joint name="attach-sabre" type="fixed">
     <parent link="link7"/>
-    <child  link="katana"/>
+    <child  link="sabre"/>
   </joint>
-  <link name="katana">
-    <visual>
-      <origin xyz="0 0.3 0" rpy="0 0 0"/>
-      <geometry>
-	<box size="0.025 0.6 0.005" />
-      </geometry>
-      <material name="black"/>
-    </visual>
+  <link 
+	name="sabre">
     <inertial>
-      <origin xyz="0 0.3 0" rpy="0 0 0"/>
-      <mass value="1.00"/>
+      <origin
+        xyz="0.37301 -3.05430000311002E-08 -0.5079214"
+        rpy="0 0 0" />
+      <mass
+        value="0.60441" />
       <inertia
-        ixx="0.00005417" ixy="0.03" ixz="0.03005"
-        iyy="0.00005417" iyz="0.03"
-        izz="0.00005417"/>
+        ixx="0.00039461"
+        ixy="1.05220000000779E-08"
+        ixz="-0.0012726"
+        iyy="0.056288"
+        iyz="-6.02900000007164E-10"
+        izz="0.056171" />
     </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="1.5707963267949 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Sabre/meshes/Sabre.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+        <texture
+          filename="package://Sabre/textures/" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="1.5707963267949 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Sabre/meshes/Sabre.STL" />
+      </geometry>
+    </collision>
   </link>
 
 
