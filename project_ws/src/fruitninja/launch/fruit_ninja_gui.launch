@@ -1,21 +1,30 @@
 <launch>
   <!-- You can overwrite these arguments from the commmand line. -->
 
+  <!-- URDF parameter. -->
+  <arg name="urdf"  default="fruitNinja.urdf"/>
+  <arg name="model" default="$(find fruitninja)/urdf/$(arg urdf)"/>
+
   <!-- Rviz configuration file parameter. -->
   <arg name="cfg"   default="$(find fruitninja)/rviz/view133.rviz" />
 
-
-  <!-- Run the rviz visualization, with the specified config file -->
-  <node pkg="rviz"
-  	type="rviz"
-	name="rviz"
-	args="-d $(arg cfg)"
-	output="screen"/>
+  <!-- Launch RVIZ and the robot state publisher. -->
+  <include file="$(find fruitninja)/launch/rviz.launch">
+    <arg name="model" value="$(arg model)"/>
+    <arg name="cfg"   value="$(arg cfg)"/>
+  </include>
 
   <!-- Start the point publisher -->
   <node pkg="fruitninja"
   	type="fruit_ninja_gui.py"
 	name="fruit_ninja_gui"
+	output="screen">
+  </node>
+
+  <!-- Start the IKIN tracker -->
+  <node pkg="fruitninja"
+  	type="fruit_ninja.py"
+	name="fruit_ninja"
 	output="screen">
   </node>
 
