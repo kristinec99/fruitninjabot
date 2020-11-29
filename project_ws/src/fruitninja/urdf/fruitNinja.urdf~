@@ -506,6 +506,13 @@
         <mesh
           filename="package://fruitninja/urdf/Sabre/meshes/Sabre.STL" />
       </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+        <texture
+          filename="package://fruitninja/urdf/Sabre/textures/" />
+      </material>
     </visual>
     <collision>
       <origin
