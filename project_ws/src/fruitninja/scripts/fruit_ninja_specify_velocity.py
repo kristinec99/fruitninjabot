@@ -254,6 +254,18 @@ def setup():
 
     # get position and desired velocity of input point
     pos = point.position()
+    # want vel to be 5 in the xy plane and -10 z, use atan2 to get rotation of point, if x=y=0 set vel to (-5,0,-10)
+    if pos[0] == 0 and pos[1] == 0:
+        vel = vec(-2, 0, -3.5)
+    else:
+        vel = vec(
+            -2 * np.cos(np.arctan2(-pos[0, 0], pos[1, 0])) + 2 * np.sin(np.arctan2(-pos[0, 0], pos[1, 0])) * np.sin( \
+                np.arctan2(pos[2, 0] - 0.5, np.sqrt(pos[0, 0] ** 2 + pos[1, 0] ** 2))), \
+            -2 * np.sin(np.arctan2(-pos[0, 0], pos[1, 0])) + 2 * np.sin(np.arctan2(-pos[0, 0], pos[1, 0])) * np.sin( \
+                np.arctan2(pos[2, 0] - 0.5, np.sqrt( pos[0, 0] ** 2 + pos[1, 0] ** 2))), \
+            -3.5 * np.cos(np.arctan2(pos[2, 0] - 0.5, np.sqrt(pos[0, 0] ** 2 + pos[1, 0] ** 2))))
+    unitvel = vel/np.linalg.norm(vel)
+    Rf, axis = vecAlign(vec(1,0,0), unitvel)
 
     thetaprev = np.array([[10.0], [10.0], [10.0], [10.0], [10.0], [10.0], [10.0]])  # use for iterating newton-raphson
     thetadot = np.zeros((7,1))
@@ -264,14 +276,15 @@ def setup():
 
     while abs(np.linalg.norm(theta) - np.linalg.norm(thetaprev)) > .01:
         (p, R) = kin.fkin(theta)
-        J = kin.Jac(theta)[0:3,:]
+        J = kin.Jac(theta)
         Jinv = np.linalg.pinv(J)
         theta0 = theta
-        theta = theta0 + Jinv @ np.subtract(pos,p)
+        e = etip(p, pos, R, Rf)
+        theta = theta0 + Jinv @ e
+        #theta = (theta + np.pi) % (2 * np.pi) - np.pi
         thetaprev = theta0
     J = kin.Jac(theta)
     Jinv = np.linalg.pinv(J)
-    vel = R @ vec(1,0,0) * 5
 
     #TODO get blade to look more realistic
     vd = np.vstack((vel,vec(0,0,0)))

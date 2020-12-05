@@ -219,9 +219,9 @@ class XYZGUI(QWidget):
     def initUI(self, p):
         # Create the XYZ variables
         vbox = QVBoxLayout()
-        vbox.addWidget(SingleVariable('X', p[0], -1.5, 1.5, self.xHandler))
-        vbox.addWidget(SingleVariable('Y', p[1], -1.5, 1.5, self.yHandler))
-        vbox.addWidget(SingleVariable('Z', p[2], 0.5, 1.0, self.zHandler))
+        vbox.addWidget(SingleVariable('X', p[0], -1.0, 1.0, self.xHandler))
+        vbox.addWidget(SingleVariable('Y', p[1], -1.0, 1.0, self.yHandler))
+        vbox.addWidget(SingleVariable('Z', p[2], 0, 1.0, self.zHandler))
         vbox.addWidget(ConstructButton(p[3], self.isPressed))
 
         self.setLayout(vbox)
