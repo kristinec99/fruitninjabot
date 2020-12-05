@@ -11,7 +11,6 @@ import rospy
 import numpy as np
 import math
 import time
-import copy
 
 from fruitninja.kinematics2 import Kinematics
 from sensor_msgs.msg import JointState
@@ -146,7 +145,7 @@ def Rz(phi):
 #  Just collect a 3x1 column vector, perform a dot product, or a cross product.
 #
 def vec(x, y, z):
-    return np.array([[x], [y], [z]], dtype='float')
+    return np.array([[x], [y], [z]])
 
 
 def dot(a, b):
@@ -155,6 +154,68 @@ def dot(a, b):
 
 def cross(a, b):
     return np.cross(a, b, axis=0)
+
+
+# Calculates start and ending position of the slash
+# Based on position of should to try and emulate real sword slash
+def slash():
+    # want the slash to arc so take spherical coordinates of start and end
+
+    # center point
+    p = point.position()
+    rp = np.linalg.norm(p)  # raidus to point
+    thp = math.atan2(p[1] , p[0])
+    phip = math.atan2(np.sqrt(p[0] ** 2 + p[1] ** 2) , (p[2]))
+    # start of slash
+    rp1 = rps
+    th1 = thp + np.pi / 8
+    phi1 = phip - np.pi / 8
+
+    # end of slash
+    rp2 = rp
+    th2 = thp - np.pi / 8
+    phi2 = phip + np.pi / 8
+
+    # convert to cartesian
+    p1 = vec(rp1 * np.sin(phi1) * np.cos(th1), rp1 * np.sin(phi1) * np.sin(th1), rp1 * np.cos(phi1))  # absolute pos
+    p2 = vec(rp2 * np.sin(phi2) * np.cos(th2), rp2 * np.sin(phi2) * np.sin(th2), rp2 * np.cos(phi2))
+    
+
+
+    #
+    sph1 = [rp1, th1, phi1]
+    sph2 = [rp2, th2, phi2]
+
+    return p1, p2, sph1, sph2
+
+
+# sine trajectory position and velocity
+def sinTrajP(p0, pf, t, t0, tf):  # uses numpy.add and subtract so can also be used for any matrix including rotation
+    pt = np.add(p0, np.subtract(pf, p0) * (
+                (t - t0) - (tf - t0) / (2 * np.pi) * np.sin(2 * np.pi * (t - t0) / (tf - t0))) / (tf - t0))
+    return pt
+
+
+def sinTrajV(p0, pf, t, t0, tf):  # velocity from a sine trajectory
+    vt = np.subtract(pf, p0) * (1 - np.cos(2 * np.pi * (t - t0) / (tf - t0))) / (tf - t0)
+    return vt
+
+
+# rotate negative x axis on tip towards fruit to slice
+def fruitPoint(tippos, tiprot):
+    pfruit = point.position()
+    veccp = np.subtract(pfruit, tippos)/np.linalg.norm(np.subtract(pfruit, tippos))  # vector from blade center to fruit position
+    #print(veccp)
+    negx = tiprot @ vec(-1, 0, 0)
+    #print(negx)
+    axis = cross(negx, veccp)  # axis to rotate -x axis of tip towards the fruit
+    cosvec = dot(negx, veccp)  # cosine of angle between two vectors
+    skewsym = np.array([[0, -axis[2][0], axis[1][0]], [axis[2][0], 0, -axis[0][0]], [-axis[1][0], axis[0][0], 0]])  # skew symmetric matrix of axis
+    desrot = np.add(np.identity(3), np.add(skewsym, skewsym @ skewsym * 1 / (1 + cosvec)))
+    #print(desrot)
+    #Stime.sleep(5)
+    return desrot
+
 
 #  6x1 Error Computation
 #
@@ -173,32 +234,64 @@ def etip(p, pd, R, Rd):
     return np.vstack((ep, eR))
 
 
-# produce a rotation matrix to align two unit vectors
-def vecAlign(vec1, vec2):
-    #print(vec1)
-    #print("-")
-    #print(vec2)
-    axis = cross(vec1, vec2)  # axis to rotate -x axis of tip onto vector
-    cosvec = dot(vec1, vec2)  # cosine of angle between two vectors
-    skewsym = np.array([[0, -axis[2,0], axis[1,0]], [axis[2,0], 0, -axis[0,0]],
-                        [-axis[1,0], axis[0,0], 0]], dtype='float')  # skew symmetric matrix of axis
-    desrot = np.add(np.identity(3), np.add(skewsym, skewsym @ skewsym * 1 / (1 + cosvec)))  # rotation matrix to rotate
-    return desrot, axis
+#
+#  Calculate the Desired
+#
+#  This computes the desired position and orientation, as well as the
+#  desired translational and angular velocities for a given time.
+#
+def desired(t, tippos, tiprot, rcur, p0):
+    # The point is simply taken from the subscriber.
+    p1, p2, sph1, sph2 = slash() # sph1, sph2 used later to make sword swing more realistic
 
 
-#  6x1 Error Computation
-#
-#  Note the 3x1 translation is on TOP of the 3x1 rotation error!
-#
-#  Also note, the cross product does not return a column vector but
-#  just a one dimensional array.  So we need to convert into a 2
-#  dimensional matrix, and transpose into the column form.  And then
-#  we use vstack to stack vertically...
+    # move blade to top of swing
+    # continually calculate matrix to point towards fruit so at top blade is pointing towards fruit
+    if t < 5:
+        pd = sinTrajP(p0, p1, t, 0, 5)
+        vd = sinTrajV(p0, p1, t, 0, 5)
+
+        # Calculate the matrix to point towards the fruit and over time move to point towards the fruit
+        Rf = fruitPoint(tippos, tiprot)
+        print(Rf)
+        Rd = sinTrajP(rcur, Rf, t, 0, 5)
+        print(Rd)
+        wd = np.zeros((3,1))
+        rcur = Rd
+
+        # perform slash with rotation held at direction to point towards fruit at top of swing
+        #TODO make more realistic swordwsing
+    elif 5 <= t <= 6:
+        if abs(t - 5) < .0001:
+            rcur = fruitPoint(tippos, tiprot)
+        pd = sinTrajP(p1, p2, t, 5, 6)
+        vd = sinTrajV(p1, p2, t, 5, 6)
+        Rd = rcur
+        wd = np.zeros((3, 1))
+
+        #return to starting position
+    elif 6 < t <= 11:
+        pd = sinTrajP(p2, p0, t, 6, 11)    
+        #print(p0)
+        vd = sinTrajV(p2, p0, t, 6, 11)
+        Rd = sinTrajP(rcur, np.identity(3), t, 6, 11)
+        wd = np.zeros((3,1))
+    else:
+        pd = p0
+        vd = np.zeros((3,1))
+        Rd = np.identity(3)
+        wd = np.zeros((3,1))
+        
+        
+
+    # Return the data.
+    return (pd, Rd, vd, wd)
+
 
 #
 #  Main Code
 #
-def setup():
+if __name__ == "__main__":
     #
     #  LOGISTICAL SETUP
     #
@@ -223,10 +316,6 @@ def setup():
     pub = JointStatePublisher(('theta1', 'theta2', 'theta3',
                                'theta4', 'theta5', 'theta6', 'theta7'))
 
-    time.sleep(.3)
-    theta = np.array([[0.0], [-0.5], [0.0], [1.0], [0.0], [0.0], [1.0]])
-    pub.send(theta)
-
     # Make sure the URDF and publisher agree in dimensions.
     if not pub.dofs() == kin.dofs():
         rospy.logerr("FIX Publisher to agree with URDF!")
@@ -235,129 +324,72 @@ def setup():
     point = PointSubscriber()
     started = StartSubscriber()
     rospy.loginfo("Waiting for a point...")
-
-    while not rospy.is_shutdown() and not point.valid() or not started.start():  # wait for valid point and for start
+    while not rospy.is_shutdown() and not point.valid():
         pass
     rospy.loginfo("Got a point.")
-    cs1 = np.zeros((7, 4))  # spline 1 coefficient matrix
-    cs2 = np.zeros((7, 4))  # spline 2 coefficient matrix
 
     # Set the numpy printing options (as not to be overly confusing).
     # This is entirely to make it look pretty (in my opinion).
     np.set_printoptions(suppress=True, precision=6)
 
-    # Our robot moves from a generic elbow down position to the slash position, so this will have good initial guess
-    theta = np.array([[0.0], [-0.5], [0.0], [1.0], [0.0], [0.0], [1.0]])
+    # Our robot moves from all states at 0 to the slash position, so this will have good initial guess
+    theta = np.array([[0.0], [0.0], [0.0], [0.0], [0.0], [0.0], [0.0]])
     pub.send(theta)
 
-    thetastart = copy.deepcopy(theta)
+    # For the initial desired, head to the starting position (t=0).
+    # Clear the velocities, just to be sure.
+    rcur = np.identity(3)
 
-    # get position and desired velocity of input point
-    pos = point.position()
-    # want vel to be 5 in the xy plane and -10 z, use atan2 to get rotation of point, if x=y=0 set vel to (-5,0,-10)
-    if pos[0] == 0 and pos[1] == 0:
-        vel = vec(-2, 0, -3.5)
-    else:
-        vel = vec(
-            -2 * np.cos(np.arctan2(-pos[0, 0], pos[1, 0])) + 2 * np.sin(np.arctan2(-pos[0, 0], pos[1, 0])) * np.sin( \
-                np.arctan2(pos[2, 0] - 0.5, np.sqrt(pos[0, 0] ** 2 + pos[1, 0] ** 2))), \
-            -2 * np.sin(np.arctan2(-pos[0, 0], pos[1, 0])) + 2 * np.sin(np.arctan2(-pos[0, 0], pos[1, 0])) * np.sin( \
-                np.arctan2(pos[2, 0] - 0.5, np.sqrt( pos[0, 0] ** 2 + pos[1, 0] ** 2))), \
-            -3.5 * np.cos(np.arctan2(pos[2, 0] - 0.5, np.sqrt(pos[0, 0] ** 2 + pos[1, 0] ** 2))))
-    unitvel = vel/np.linalg.norm(vel)
-    Rf, axis = vecAlign(vec(1,0,0), unitvel)
+    (p, R) = kin.fkin(theta)
+    pstart=vec(0,1.1,0.6)
 
-    thetaprev = np.array([[10.0], [10.0], [10.0], [10.0], [10.0], [10.0], [10.0]])  # use for iterating newton-raphson
-    thetadot = np.zeros((7,1))
-    lam = 0.1/dt
-    #(pos, Rf) = kin.fkin(thetarand)
-    #pos = copy.deepcopy(pos)
-    #Rf = copy.deepcopy(Rf)
+    #
+    #  TIME LOOP
+    #
+    # I play one "trick": I start at (t=-1) and use the first second
+    # to allow the poor initial guess to move to the starting point.
+    #
 
-    while abs(np.linalg.norm(theta) - np.linalg.norm(thetaprev)) > .01:
-        (p, R) = kin.fkin(theta)
-        J = kin.Jac(theta)
-        Jinv = np.linalg.pinv(J)
-        theta0 = theta
-        e = etip(p, pos, R, Rf)
-        theta = theta0 + Jinv @ e
-        #theta = (theta + np.pi) % (2 * np.pi) - np.pi
-        thetaprev = theta0
-    J = kin.Jac(theta)
-    Jinv = np.linalg.pinv(J)
-
-    #TODO get blade to look more realistic
-    vd = np.vstack((vel,vec(0,0,0)))
-    #print(vd)
-    thetadot = Jinv @ vd
-
-    
-    thetacur = np.zeros((7,1))
-
+    (pd, Rd, vd, wd) = desired(0, pstart, rcur, rcur, pstart)
     t = 0
-    tslice = 2
-    tf = 7
-    for i in range(7):
-        s1sys = np.array([[1, 0, 0, 0], \
-                               [0, 1, 0, 0], \
-                               [1, tslice - t, (tslice - t) ** 2, (tslice - t) ** 3], \
-                               [0, 1, 2*(tslice - t), 3*(tslice - t) ** 2]], dtype='float')  # system of equations for spline 1
-
-        s1val = np.array([thetastart[i,0], 0, theta[i,0], thetadot[i,0]], dtype='float')  # matrix of p0, v0, pf, vf for spline 1
-        cs1[i,:] = np.linalg.solve(s1sys, s1val)
-        s2sys = np.array([[1, 0, 0, 0], \
-                               [0, 1, 0, 0], \
-                               [1, tf - tslice, (tf - tslice) ** 2, (tf - tslice) ** 3], \
-                               [0, 1, 2*(tf - tslice), 3*(tf - tslice) ** 2]], dtype='float')  # system of equations for spline 1
-
-        s2val = np.array([theta[i,0], thetadot[i,0], thetastart[i,0], 0], dtype='float')  # matrix of p0, v0, pf, vf for spline 1
-
-        cs2[i,:] = np.linalg.solve(s2sys, s2val)
-
-
-        #
-        #  TIME LOOP
-        #
-        #
+    tf = 1
     lam = 0.1 / dt
-    print(cs1)
-    print('-')
-    print(cs2)
-
-    print(cs1[0,:])
-
     while not rospy.is_shutdown():
         if started.state:
             # Using the result theta(i-1) of the last cycle (i-1):
             # Compute the forward kinematics and the Jacobian.
+            (p, R) = kin.fkin(theta)
+            J = kin.Jac(theta)
+
+            # Use that data to compute the error (left after last cycle).
+            e = etip(p, pd, R, Rd)
 
             # Advance to the new time step.
             t += dt
 
-            for i in range(7):
-                if t<tslice:
-                    thetacur[i,0]=cs1[i,0]+cs1[i,1]*t+cs1[i,2]*t**2+cs1[i,3]*t**3
-                    print(thetacur)
-                elif tslice<=t<=tf:
-                    thetacur[i,0]=cs2[i,0]+cs2[i,1]*(t-tslice)+cs2[i,2]*(t-tslice)**2+cs2[i,3]*(t-tslice)**3
-                else:
-                    thetacur[i,0]=thetastart[i,0]
-                
+            # Compute the new desired.
+            (pd, Rd, vd, wd) = desired(t, p, R, rcur, pstart)
 
+            # Build the reference velocity.
+            vr = np.vstack((vd, wd)) + lam * e
+
+            # Compute the Jacbian inverse (pseudo inverse)
+            # Jpinv = np.linalg.pinv(J)
+            Jinv = np.linalg.pinv(J)
+
+            # Update the joint angles.
+            thetadot = Jinv @ vr
+            theta += dt * thetadot
 
             # Publish and sleep for the rest of the time.  You can choose
             # whether to show the initial "negative time convergence"....
             # if not t<0:
-            pub.send(thetacur)
+            pub.send(theta)
             servo.sleep()
 
             # Break the loop when we are finished.
             # if (t >= tf):
             #     break
         else:
-            setup()
-
-
-if __name__ == "__main__":
-    setup()
+            t = 0
 
