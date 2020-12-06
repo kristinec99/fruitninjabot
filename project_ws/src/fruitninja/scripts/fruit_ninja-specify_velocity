@@ -156,11 +156,6 @@ def dot(a, b):
 def cross(a, b):
     return np.cross(a, b, axis=0)
 
-
-# following two functions are used if a very specific motion is desired for sword
-# no use if letting algorithm determine final cutting direction
-
-
 #  6x1 Error Computation
 #
 #  Note the 3x1 translation is on TOP of the 3x1 rotation error!
@@ -170,7 +165,6 @@ def cross(a, b):
 #  dimensional matrix, and transpose into the column form.  And then
 #  we use vstack to stack vertically...
 #
-
 def etip(p, pd, R, Rd):
     ep = pd - p
     eR = 0.5 * (cross(R[:, [0]], Rd[:, [0]]) +
@@ -181,6 +175,9 @@ def etip(p, pd, R, Rd):
 
 # produce a rotation matrix to align two unit vectors
 def vecAlign(vec1, vec2):
+    #print(vec1)
+    #print("-")
+    #print(vec2)
     axis = cross(vec1, vec2)  # axis to rotate -x axis of tip onto vector
     cosvec = dot(vec1, vec2)  # cosine of angle between two vectors
     skewsym = np.array([[0, -axis[2,0], axis[1,0]], [axis[2,0], 0, -axis[0,0]],
@@ -188,6 +185,15 @@ def vecAlign(vec1, vec2):
     desrot = np.add(np.identity(3), np.add(skewsym, skewsym @ skewsym * 1 / (1 + cosvec)))  # rotation matrix to rotate
     return desrot, axis
 
+
+#  6x1 Error Computation
+#
+#  Note the 3x1 translation is on TOP of the 3x1 rotation error!
+#
+#  Also note, the cross product does not return a column vector but
+#  just a one dimensional array.  So we need to convert into a 2
+#  dimensional matrix, and transpose into the column form.  And then
+#  we use vstack to stack vertically...
 
 #
 #  Main Code
@@ -218,7 +224,7 @@ def setup():
                                'theta4', 'theta5', 'theta6', 'theta7'))
 
     time.sleep(.3)
-    theta = np.array([[0.0], [-0.5], [0.0], [1.0], [0.0], [0.0], [1.0]]) # start elbow down in a natural sword holding position
+    theta = np.array([[0.0], [-0.5], [0.0], [1.0], [0.0], [0.0], [1.0]])
     pub.send(theta)
 
     # Make sure the URDF and publisher agree in dimensions.
@@ -244,55 +250,61 @@ def setup():
     theta = np.array([[0.0], [-0.5], [0.0], [1.0], [0.0], [0.0], [1.0]])
     pub.send(theta)
 
-    thetastart = copy.deepcopy(theta) # keep copy of starting position to go back to in 2nd spline
+    thetastart = copy.deepcopy(theta)
 
     # get position and desired velocity of input point
     pos = point.position()
+    # want vel to be 5 in the xy plane and -10 z, use atan2 to get rotation of point, if x=y=0 set vel to (-5,0,-10)
+    if pos[0] == 0 and pos[1] == 0:
+        vel = vec(-2, 0, -3.5)
+    else:
+        vel = vec(
+            -2 * np.cos(np.arctan2(-pos[0, 0], pos[1, 0])) + 2 * np.sin(np.arctan2(-pos[0, 0], pos[1, 0])) * np.sin( \
+                np.arctan2(pos[2, 0] - 0.5, np.sqrt(pos[0, 0] ** 2 + pos[1, 0] ** 2))), \
+            -2 * np.sin(np.arctan2(-pos[0, 0], pos[1, 0])) + 2 * np.sin(np.arctan2(-pos[0, 0], pos[1, 0])) * np.sin( \
+                np.arctan2(pos[2, 0] - 0.5, np.sqrt( pos[0, 0] ** 2 + pos[1, 0] ** 2))), \
+            -3.5 * np.cos(np.arctan2(pos[2, 0] - 0.5, np.sqrt(pos[0, 0] ** 2 + pos[1, 0] ** 2))))
+    unitvel = vel/np.linalg.norm(vel)
+    Rf, axis = vecAlign(vec(1,0,0), unitvel)
 
     thetaprev = np.array([[10.0], [10.0], [10.0], [10.0], [10.0], [10.0], [10.0]])  # use for iterating newton-raphson
     thetadot = np.zeros((7,1))
-    
-    thetamid = copy.deepcopy(theta)
-    thetamid[0,0] = (np.arctan2(-pos[0,0],pos[1,0])+ np.pi/4*np.sign(np.arctan2(-pos[0,0],pos[1,0])) + np.pi) % (2 * np.pi) - np.pi # wraps joint angle to pi
-    
-    
     lam = 0.1/dt
+    #(pos, Rf) = kin.fkin(thetarand)
+    #pos = copy.deepcopy(pos)
+    #Rf = copy.deepcopy(Rf)
 
-
-    # perform newton raphson iteration algorithm on final 
     while abs(np.linalg.norm(theta) - np.linalg.norm(thetaprev)) > .01:
         (p, R) = kin.fkin(theta)
-        J = kin.Jac(theta)[0:3,:] # position component of jacobian
-        Jinv = np.linalg.pinv(J) 
+        J = kin.Jac(theta)
+        Jinv = np.linalg.pinv(J)
         theta0 = theta
-        theta = theta0 + Jinv @ np.subtract(pos,p) # take error based on positional error
+        e = etip(p, pos, R, Rf)
+        theta = theta0 + Jinv @ e
+        #theta = (theta + np.pi) % (2 * np.pi) - np.pi
         thetaprev = theta0
-
-
-    theta = (theta + np.pi) % (2 * np.pi) - np.pi # wrap joint angles to +/- pi
     J = kin.Jac(theta)
     Jinv = np.linalg.pinv(J)
-    vel = R @ vec(1,0,0) # align cutting edge (x-axis) to the final rotation of the blade
 
-    vd = np.vstack((vel,vec(0,0,0))) # want it to not be rotating as it cuts the fruit
+    #TODO get blade to look more realistic
+    vd = np.vstack((vel,vec(0,0,0)))
+    #print(vd)
     thetadot = Jinv @ vd
-    thetadot = thetadot / np.linalg.norm(thetadot) * 10
 
-    thetacur = np.zeros((7,1))
     
-    #tstart = -1
-    t = 0 #tstart
-    t0 = 0
+    thetacur = np.zeros((7,1))
+
+    t = 0
     tslice = 2
     tf = 7
     for i in range(7):
         s1sys = np.array([[1, 0, 0, 0], \
                                [0, 1, 0, 0], \
-                               [1, tslice - t0, (tslice - t0) ** 2, (tslice - t0) ** 3], \
+                               [1, tslice - t, (tslice - t) ** 2, (tslice - t) ** 3], \
                                [0, 1, 2*(tslice - t), 3*(tslice - t) ** 2]], dtype='float')  # system of equations for spline 1
 
         s1val = np.array([thetastart[i,0], 0, theta[i,0], thetadot[i,0]], dtype='float')  # matrix of p0, v0, pf, vf for spline 1
-        cs1[i,:] = np.linalg.solve(s1sys, s1val) # set coefficient matrix 1 to the solution to system of equations as specified above
+        cs1[i,:] = np.linalg.solve(s1sys, s1val)
         s2sys = np.array([[1, 0, 0, 0], \
                                [0, 1, 0, 0], \
                                [1, tf - tslice, (tf - tslice) ** 2, (tf - tslice) ** 3], \
@@ -300,35 +312,37 @@ def setup():
 
         s2val = np.array([theta[i,0], thetadot[i,0], thetastart[i,0], 0], dtype='float')  # matrix of p0, v0, pf, vf for spline 1
 
-        cs2[i,:] = np.linalg.solve(s2sys, s2val) # set coefficient matrix 2 to the solution to system of equations as specified above
+        cs2[i,:] = np.linalg.solve(s2sys, s2val)
 
 
         #
         #  TIME LOOP
         #
         #
-    lam = 0.1 / dt # error term
+    lam = 0.1 / dt
+    print(cs1)
+    print('-')
+    print(cs2)
+
+    print(cs1[0,:])
 
     while not rospy.is_shutdown():
-        # checks if simulation has been started by button on gui
         if started.state:
             # Using the result theta(i-1) of the last cycle (i-1):
             # Compute the forward kinematics and the Jacobian.
 
             # Advance to the new time step.
             t += dt
+
             for i in range(7):
-                #if t< 0: # before t=0, move to a good starting position to help alleviate clipping
-                    #thetacur[i,0] = thetastart[i,0] + (thetamid[i,0]-thetastart[i,0])/(1)*((t-tstart)-1/(np.pi*2)*np.sin(2*np.pi*(t-tstart)/1))
-                if 0<t<tslice:
-                    thetacur[i,0]=cs1[i,0]+cs1[i,1]*t+cs1[i,2]*t**2+cs1[i,3]*t**3 # spine 1 from t=0 to slicing the fruit
+                if t<tslice:
+                    thetacur[i,0]=cs1[i,0]+cs1[i,1]*t+cs1[i,2]*t**2+cs1[i,3]*t**3
                 elif tslice<=t<=tf:
-                    thetacur[i,0]=cs2[i,0]+cs2[i,1]*(t-tslice)+cs2[i,2]*(t-tslice)**2+cs2[i,3]*(t-tslice)**3 # spine 2 from t=0 to slicing the fruit
-                #elif tf < t < tf+1:
-                    #thetacur[i,0] = thetamid[i,0] + (thetastart[i,0]-thetamid[i,0])/(1)*((t-tf)-.5/(np.pi*2)*np.sin(2*np.pi*(t-tf)/1))
+                    thetacur[i,0]=cs2[i,0]+cs2[i,1]*(t-tslice)+cs2[i,2]*(t-tslice)**2+cs2[i,3]*(t-tslice)**3
                 else:
-                    thetacur[i,0]=thetastart[i,0] # stay at starting position until reset
+                    thetacur[i,0]=thetastart[i,0]
                 
+
 
             # Publish and sleep for the rest of the time.  You can choose
             # whether to show the initial "negative time convergence"....
@@ -336,7 +350,9 @@ def setup():
             pub.send(thetacur)
             servo.sleep()
 
-        # if reset button is pushed go to startup and reset
+            # Break the loop when we are finished.
+            # if (t >= tf):
+            #     break
         else:
             setup()
 
