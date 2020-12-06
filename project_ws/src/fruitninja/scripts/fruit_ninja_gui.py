@@ -48,6 +48,12 @@ class PointPublisher:
         self.p.x = p0[0]
         self.p.y = p0[1]
         self.p.z = p0[2]
+        
+        # Initial position of arc.
+        self.xi = 0
+        self.yi = 5
+        self.zi = 0
+        self.t = 0
 
         # Create the sphere marker.
         self.marker = Marker()
@@ -61,7 +67,9 @@ class PointPublisher:
         self.marker.pose.orientation.y = 0.0
         self.marker.pose.orientation.z = 0.0
         self.marker.pose.orientation.w = 1.0
-        self.marker.pose.position = self.p
+        self.marker.pose.position.x = self.xi
+        self.marker.pose.position.y = self.yi
+        self.marker.pose.position.z = self.zi
         self.marker.scale.x = 0.1
         self.marker.scale.y = 0.1
         self.marker.scale.z = 0.1
@@ -84,24 +92,57 @@ class PointPublisher:
         self.pressed = p0[3]
 
     def update(self, p):
+        # Updates values from GUI        
         self.p.x = p[0]
         self.p.y = p[1]
         self.p.z = p[2]
         self.pressed = p[3]
 
-        # if sim is running make sphere not transparent
+    
+    def update_marker(self):
+        # Updates marker appearance and position.
         if not self.pressed:
+            # If button is not pressed, the marker is transparent.  
             self.marker.color.r = 1.0
             self.marker.color.g = 1.0
             self.marker.color.b = 1.0
             self.marker.color.a = 0.5 
+            self.t = 0   
+            self.marker.pose.position.x = self.xi
+            self.marker.pose.position.y = self.yi
+            self.marker.pose.position.z = self.zi     
         else:
+            # If button is pressed, the marker is red and moves along the trajectory. 
             self.marker.color.r = 1.0
             self.marker.color.g = 0.0
             self.marker.color.b = 0.0
             self.marker.color.a = 1.0 
+            
+            # "Throwing" the marker in tslice seconds            
+            tslice = 2 
+            tvanish = 2.25
+            dt = 0.01        
+            if self.t<tslice:
+                self.marker.pose.position.x = (-self.xi/2 + self.p.x/2)*self.t + self.xi
+                self.marker.pose.position.y = (-self.yi/2 + self.p.y/2)*self.t + self.yi
+                self.marker.pose.position.z = -4.9*self.t**2 + (9.8-self.zi/2 + self.p.z/2)*self.t + self.zi
+                # Advance to the new time step.            
+                self.t += dt
+            elif tslice<self.t<tvanish:
+                self.marker.pose.position.x = self.p.x    
+                self.marker.pose.position.y = self.p.y        
+                self.marker.pose.position.z = self.p.z                
+                self.t += dt
+            else:
+                self.marker.color.r = 1.0
+                self.marker.color.g = 1.0
+                self.marker.color.b = 1.0
+                self.marker.color.a = 0.5  
 
     def publish(self):
+        # Update marker position.
+        self.update_marker()
+
         # Publish.
         now = rospy.Time.now()
         self.marker.header.stamp = now
@@ -111,9 +152,9 @@ class PointPublisher:
         self.pub_start.publish(self.pressed)
 
     def loop(self):
-        # Prepare a servo loop at 10Hz.
-        servo = rospy.Rate(10)
-        rospy.loginfo("Point-Publisher publication thread running at 10Hz...")
+        # Prepare a servo loop at 100Hz.
+        servo = rospy.Rate(100)
+        rospy.loginfo("Point-Publisher publication thread running at 100Hz...")
 
         # Loop: Publish and sleep
         while not rospy.is_shutdown():
