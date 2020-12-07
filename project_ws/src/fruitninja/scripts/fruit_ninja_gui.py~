@@ -51,7 +51,7 @@ class PointPublisher:
         
         # Initial position of arc.
         self.xi = 0
-        self.yi = 2
+        self.yi = 5
         self.zi = 0
         self.t = 0
 
@@ -120,28 +120,28 @@ class PointPublisher:
             
             # "Throwing" the marker in tslice seconds            
             tslice = 2 
-            tvanish = 2.25
-            az = -1
+            tvanish = 3
             dt = 0.01        
             if self.t<tslice:
                 self.marker.pose.position.x = (-self.xi/2 + self.p.x/2)*self.t + self.xi
                 self.marker.pose.position.y = (-self.yi/2 + self.p.y/2)*self.t + self.yi
-                self.marker.pose.position.z = az*self.t**2 + (-az*2-self.zi/2 + self.p.z/2)*self.t + self.zi 
+                self.marker.pose.position.z = -4.9*self.t**2 + (9.8-self.zi/2 + self.p.z/2)*self.t + self.zi
                 # Advance to the new time step.            
                 self.t += dt
             elif tslice<self.t<tvanish:
                 self.marker.pose.position.x = (-self.xi/2 + self.p.x/2)*self.t + self.xi
                 self.marker.pose.position.y = (-self.yi/2 + self.p.y/2)*self.t + self.yi
-                self.marker.pose.position.z = az*self.t**2 + (-az*2-self.zi/2 + self.p.z/2)*self.t + self.zi             
+                self.marker.pose.position.z = -4.9*self.t**2 + (9.8-self.zi/2 + self.p.z/2)*self.t + self.zi             
                 self.t += dt
             else:
-                self.marker.pose.position.x = self.xi
-                self.marker.pose.position.y = self.yi
-                self.marker.pose.position.z = self.zi 
+                self.marker.pose.position.x = self.p.x    
+                self.marker.pose.position.y = self.p.y        
+                self.marker.pose.position.z = self.p.z
                 self.marker.color.r = 1.0
                 self.marker.color.g = 1.0
                 self.marker.color.b = 1.0
                 self.marker.color.a = 0.5  
+
     def publish(self):
         # Update marker position.
         self.update_marker()
