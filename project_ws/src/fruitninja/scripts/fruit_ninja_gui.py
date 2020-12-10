@@ -228,7 +228,7 @@ class ConstructButton(QWidget):
     def initUI(self):
 
         # Button
-        startButton = QPushButton('Place Fruit', self)
+        startButton = QPushButton('Throw Fruit', self)
         startButton.clicked.connect(self.startPressed)
 
         resetButton = QPushButton('Reset', self)
